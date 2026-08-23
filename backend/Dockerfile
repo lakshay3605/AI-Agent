@@ -23,8 +23,9 @@ ENV PORT=8000
 ENV DATA_DIR=/app/data
 ENV CHROMA_PERSIST_DIR=/app/storage/chroma
 
-# Build the RAG vector index during the image build
-RUN python -m app.rag.ingestion
+# Build and verify the RAG vector index during image build
+RUN python -m app.rag.ingestion && \
+    python -c "import chromadb; from app.core.config import settings; client=chromadb.PersistentClient(path=settings.CHROMA_PERSIST_DIR); collection=client.get_collection(settings.CHROMA_COLLECTION_NAME); print('RAG chunks:', collection.count()); assert collection.count() > 0, 'RAG collection is empty'"
 
 EXPOSE 8000
 
