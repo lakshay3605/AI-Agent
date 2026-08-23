@@ -178,24 +178,40 @@ def test_agent_chat_api_endpoint():
 
 
 def test_llm_config_error_when_key_missing(monkeypatch):
-    """Verify that get_chat_model raises LLMConfigError if GEMINI_API_KEY is not set."""
+    """Verify that get_chat_model raises LLMConfigError if OPENAI_API_KEY is not set."""
     from app.llm import get_chat_model, LLMConfigError, clear_llm_cache
+    from app.core.config import settings
     clear_llm_cache()
-    monkeypatch.delenv("GEMINI_API_KEY", raising=False)
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.setattr(settings, "OPENAI_API_KEY", None)
+    monkeypatch.setenv("LLM_PROVIDER", "openai")
     with pytest.raises(LLMConfigError):
         get_chat_model(api_key="")
 
 
-def test_gemini_failure_does_not_use_deterministic_fallback(monkeypatch):
-    """Gemini failures must be surfaced instead of replaced with a fabricated answer."""
+def test_configured_model_passed_to_chat_model(monkeypatch):
+    """Verify that OPENAI_MODEL setting/env variable is accurately passed to ChatOpenAI model property."""
+    from app.llm.client import get_chat_model, clear_llm_cache
+    from langchain_openai import ChatOpenAI
+    clear_llm_cache()
+    monkeypatch.setenv("LLM_PROVIDER", "openai")
+    monkeypatch.setenv("OPENAI_MODEL", "gpt-5-nano")
+    monkeypatch.setenv("OPENAI_API_KEY", "test-key-123")
+    model = get_chat_model()
+    assert isinstance(model, ChatOpenAI)
+    assert getattr(model, "model_name", getattr(model, "model", None)) == "gpt-5-nano"
+
+
+def test_llm_failure_does_not_use_deterministic_fallback(monkeypatch):
+    """LLM API failures must be surfaced instead of replaced with a fabricated answer."""
     from app.agent import nodes
     from app.llm import LLMConfigError
 
     def raise_config_error():
-        raise LLMConfigError("Gemini is unavailable")
+        raise LLMConfigError("LLM service is unavailable")
 
     monkeypatch.setattr(nodes, "get_chat_model", raise_config_error)
-    with pytest.raises(LLMConfigError, match="Gemini is unavailable"):
+    with pytest.raises(LLMConfigError, match="LLM service is unavailable"):
         nodes.call_llm_node({"messages": [{"role": "user", "content": "Lookup ORD-1001"}]})
 
 
@@ -209,3 +225,4 @@ def test_real_llm_tool_calling_integration():
     assert "response" in res
     assert len(res["response"]) > 0
     assert any("ORD-1001" in act for act in res["activity"])
+

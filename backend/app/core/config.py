@@ -43,12 +43,18 @@ class Settings(BaseSettings):
     CHROMA_COLLECTION_NAME: str = "parcelpilot_docs"
 
     # LLM Settings
-    LLM_PROVIDER: str = "gemini"
-    GEMINI_MODEL: str = "gemini-2.5-flash"
+    LLM_PROVIDER: str = "openai"
+    OPENAI_MODEL: str = "gpt-5-nano"
+    OPENAI_API_KEY: str | None = None
+    GEMINI_MODEL: str = "gemini-3.5-flash-lite"
     GEMINI_API_KEY: str | None = None
 
     model_config = SettingsConfigDict(
-        env_file=".env",
+        env_file=(
+            os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), "backend", ".env"),
+            os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), ".env"),
+            ".env",
+        ),
         env_file_encoding="utf-8",
         case_sensitive=True,
         extra="ignore",
