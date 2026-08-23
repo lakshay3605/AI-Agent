@@ -26,9 +26,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, onSelectTab, classN
       <div>
         {/* Brand Header */}
         <div className="h-14 px-4 flex items-center gap-2.5 border-b border-slate-100">
-          <div className="w-7 h-7 rounded-lg bg-blue-600 flex items-center justify-center text-white shadow-sm">
-            <Package className="w-4 h-4" />
-          </div>
+          <img src="/logo.png" alt="ParcelPilot Logo" className="w-7 h-7 rounded-lg shadow-sm object-cover" />
           <span className="font-semibold text-slate-900 text-sm tracking-tight">ParcelPilot</span>
         </div>
 
