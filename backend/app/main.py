@@ -13,19 +13,49 @@ from app.services.data_service import get_data_service
 from app.rag.vector_store import VectorStoreManager
 
 
+import logging
+
+logger = logging.getLogger("parcelpilot.main")
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application startup and shutdown lifespan context manager."""
     # Pre-load data service on startup
     data_service = get_data_service()
     
-    # Pre-warm embedding provider during container startup to avoid mid-request heap expansion
+    # Pre-warm embedding provider and verify Chroma collection embedding dimension
     try:
+        from app.rag.vector_store import VectorStoreManager
+        from app.rag.ingestion import run_ingestion
+        
         vsm = VectorStoreManager()
         if hasattr(vsm.embedding_provider, "preload"):
             vsm.embedding_provider.preload()
-    except Exception:
-        pass
+
+        col = vsm.get_collection()
+        need_rebuild = False
+        if col.count() == 0:
+            need_rebuild = True
+        else:
+            sample_query = vsm.embedding_provider.embed_query("test")
+            first_items = col.get(limit=1, include=["embeddings"])
+            stored_embeddings = first_items.get("embeddings") if first_items else None
+            if stored_embeddings is not None and len(stored_embeddings) > 0:
+                existing_dim = len(stored_embeddings[0])
+                current_dim = len(sample_query)
+                if existing_dim != current_dim:
+                    logger.warning(
+                        f"Embedding dimension mismatch detected (Collection: {existing_dim}, Provider: {current_dim}). "
+                        "Rebuilding vector database index for current provider..."
+                    )
+                    need_rebuild = True
+
+        if need_rebuild:
+            logger.info("Initializing vector index ingestion during server startup...")
+            run_ingestion(rebuild=True)
+    except Exception as ex:
+        logger.warning(f"Lifespan vector store validation warning: {ex}")
 
     yield
 
