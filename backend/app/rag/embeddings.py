@@ -155,10 +155,26 @@ class GeminiEmbeddingProvider(BaseEmbeddingProvider):
 
 
 def get_default_embedding_provider() -> BaseEmbeddingProvider:
-    """Factory returning configured or zero-memory default embedding provider."""
-    provider = getattr(settings, "EMBEDDING_PROVIDER", "sentence_transformer").lower()
-    if provider == "gemini":
-        return GeminiEmbeddingProvider()
-    elif provider == "openai":
+    """
+    Factory returning appropriate embedding provider.
+    Auto-selects lightweight API embeddings (OpenAI or Gemini) if API keys are configured,
+    preventing PyTorch OOM crashes on Render 512MB RAM instances.
+    """
+    provider = getattr(settings, "EMBEDDING_PROVIDER", "auto").lower()
+    if provider == "openai":
         return OpenAIEmbeddingProvider()
+    elif provider == "gemini":
+        return GeminiEmbeddingProvider()
+    elif provider == "sentence_transformer":
+        return SentenceTransformerEmbeddingProvider()
+
+    # Automatic selection: Use API provider if key is configured (0 MB PyTorch RAM)
+    if settings.OPENAI_API_KEY:
+        logger.info("Auto-selected OpenAIEmbeddingProvider for zero-memory vector retrieval.")
+        return OpenAIEmbeddingProvider()
+    elif settings.GEMINI_API_KEY:
+        logger.info("Auto-selected GeminiEmbeddingProvider for zero-memory vector retrieval.")
+        return GeminiEmbeddingProvider()
+
+    logger.info("Defaulting to SentenceTransformerEmbeddingProvider.")
     return SentenceTransformerEmbeddingProvider()

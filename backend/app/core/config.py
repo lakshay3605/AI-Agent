@@ -38,6 +38,7 @@ class Settings(BaseSettings):
     DATA_DIR: str = os.path.join(os.path.dirname(BASE_DIR), "data")
     CHUNK_SIZE: int = 600
     CHUNK_OVERLAP: int = 100
+    EMBEDDING_PROVIDER: str = "auto"
     EMBEDDING_MODEL_NAME: str = "BAAI/bge-small-en-v1.5"
     CHROMA_PERSIST_DIR: str = os.path.join(BASE_DIR, "storage", "chroma")
     CHROMA_COLLECTION_NAME: str = "parcelpilot_docs"
