@@ -133,7 +133,7 @@ def fallback_reasoning_node(state: AgentState) -> Dict[str, Any]:
             status = "ACTION_PENDING_CONFIRMATION"
 
         calc_res = None
-        if "credit" in msg_lower or "sla" in msg_lower or "fee" in msg_lower:
+        if "service credit" in msg_lower or "sla credit" in msg_lower:
             if entities["orders"]:
                 calc_res = tool_calculate_service_credit(order_id=entities["orders"][0], user_context=user_context)
                 if calc_res.get("activity"):

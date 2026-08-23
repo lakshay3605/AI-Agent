@@ -278,12 +278,12 @@ from langchain_core.tools import tool
 
 @tool("search_documents", args_schema=SearchDocumentsInput)
 def search_documents(query: str, customer_name: Optional[str] = None, top_k: int = 10) -> Dict[str, Any]:
-    """Search RAG vector database for policy, SOP, operations, or customer agreement passages."""
+    """Search knowledge base for customer enterprise agreements, cancellation policies, SOPs, or contract clauses. MANDATORY tool to call whenever answering questions about policy rules, cancellation fee waivers, SLA terms, or customer agreement clauses."""
     return tool_search_documents(query=query, customer_name=customer_name, top_k=top_k)
 
 @tool("get_order", args_schema=GetOrderInput)
 def get_order(order_id: str) -> Dict[str, Any]:
-    """Retrieve operational order details by Order ID (e.g. ORD-1001)."""
+    """Retrieve operational order details by Order ID (e.g. ORD-1001). Returns status, pickup status, and customer name."""
     return tool_get_order(order_id=order_id)
 
 @tool("get_customer", args_schema=GetCustomerInput)
@@ -298,7 +298,7 @@ def get_ticket(ticket_id: str) -> Dict[str, Any]:
 
 @tool("calculate_service_credit", args_schema=CalculateServiceCreditInput)
 def calculate_service_credit(order_id: str) -> Dict[str, Any]:
-    """Calculate SLA service credit based strictly on authentic order records and contract terms."""
+    """Calculate SLA delivery delay service credit based strictly on fault attribution records (carrier fault vs customer fault). Do NOT call this tool for customer cancellation fee questions."""
     return tool_calculate_service_credit(order_id=order_id)
 
 @tool("create_escalation", args_schema=CreateEscalationInput)
