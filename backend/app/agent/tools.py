@@ -17,7 +17,7 @@ logger = logging.getLogger("parcelpilot.tools")
 class SearchDocumentsInput(BaseModel):
     query: str = Field(..., description="Semantic search query (e.g. cancellation policy, SLA terms)")
     customer_name: Optional[str] = Field(default=None, description="Optional customer name to scope search")
-    top_k: int = Field(default=5, description="Number of results to retrieve")
+    top_k: int = Field(default=10, description="Number of results to retrieve")
 
 
 class GetOrderInput(BaseModel):
@@ -47,7 +47,7 @@ class CreateEscalationInput(BaseModel):
 def tool_search_documents(
     query: str, 
     customer_name: Optional[str] = None, 
-    top_k: int = 5,
+    top_k: int = 10,
     user_context: Optional[Dict[str, Any]] = None
 ) -> Dict[str, Any]:
     """
@@ -277,7 +277,7 @@ def tool_create_escalation(
 from langchain_core.tools import tool
 
 @tool("search_documents", args_schema=SearchDocumentsInput)
-def search_documents(query: str, customer_name: Optional[str] = None, top_k: int = 5) -> Dict[str, Any]:
+def search_documents(query: str, customer_name: Optional[str] = None, top_k: int = 10) -> Dict[str, Any]:
     """Search RAG vector database for policy, SOP, operations, or customer agreement passages."""
     return tool_search_documents(query=query, customer_name=customer_name, top_k=top_k)
 

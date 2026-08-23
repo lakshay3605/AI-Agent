@@ -10,11 +10,23 @@ from app.core.config import settings
 from app.services.data_service import get_data_service
 
 
+from app.rag.vector_store import VectorStoreManager
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application startup and shutdown lifespan context manager."""
     # Pre-load data service on startup
     data_service = get_data_service()
+    
+    # Pre-warm embedding provider during container startup to avoid mid-request heap expansion
+    try:
+        vsm = VectorStoreManager()
+        if hasattr(vsm.embedding_provider, "preload"):
+            vsm.embedding_provider.preload()
+    except Exception:
+        pass
+
     yield
 
 

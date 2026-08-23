@@ -35,7 +35,7 @@ class CustomerAwareRetriever:
         self, 
         query: str, 
         customer: Optional[str] = None, 
-        limit: int = 5,
+        limit: int = 10,
         status: Optional[str] = None
     ) -> RetrieverResponse:
         """

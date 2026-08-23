@@ -9,7 +9,11 @@ from chromadb.config import Settings as ChromaSettings
 
 from app.core.config import settings
 from app.rag.chunker import TextChunk
-from app.rag.embeddings import BaseEmbeddingProvider, SentenceTransformerEmbeddingProvider
+from app.rag.embeddings import (
+    BaseEmbeddingProvider, 
+    SentenceTransformerEmbeddingProvider, 
+    get_default_embedding_provider
+)
 
 logger = logging.getLogger("parcelpilot.vector_store")
 
@@ -39,7 +43,7 @@ class VectorStoreManager:
         self.persist_path = Path(persist_directory).resolve()
         self.persist_path.mkdir(parents=True, exist_ok=True)
         self.collection_name = collection_name
-        self.embedding_provider = embedding_provider or SentenceTransformerEmbeddingProvider()
+        self.embedding_provider = embedding_provider or get_default_embedding_provider()
 
         logger.info(f"Initializing ChromaDB client at persistent path: {self.persist_path}")
         self.client = get_chroma_client(self.persist_path)

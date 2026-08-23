@@ -1,4 +1,4 @@
-"""Abstract embedding provider and SentenceTransformers implementation."""
+"""Embedding provider using OpenAI embeddings."""
 
 import logging
 from abc import ABC, abstractmethod
@@ -10,7 +10,6 @@ logger = logging.getLogger("parcelpilot.embeddings")
 
 
 class BaseEmbeddingProvider(ABC):
-    """Abstract interface for generating text embeddings."""
 
     @abstractmethod
     def embed_documents(self, texts: List[str]) -> List[List[float]]:
@@ -21,70 +20,145 @@ class BaseEmbeddingProvider(ABC):
         pass
 
 
-class SentenceTransformerEmbeddingProvider(BaseEmbeddingProvider):
-    """SentenceTransformers local embedding provider."""
+class OpenAIEmbeddingProvider(BaseEmbeddingProvider):
+    """Lightweight OpenAI embedding provider."""
 
-    _shared_models = {}
-
-    def __init__(self, model_name: str = settings.EMBEDDING_MODEL_NAME):
+    def __init__(
+        self,
+        model_name: str = "text-embedding-3-small",
+    ):
         self.model_name = model_name
+        self._client = None
 
     @property
-    def model(self):
-        """Load the embedding model once and reuse it."""
-        if self.model_name not in self._shared_models:
-            try:
-                from sentence_transformers import SentenceTransformer
+    def client(self):
+        if self._client is None:
+            from openai import OpenAI
 
-                logger.info(
-                    f"Loading SentenceTransformer embedding model: {self.model_name}"
-                )
+            if not settings.OPENAI_API_KEY:
+                raise RuntimeError("OPENAI_API_KEY is not configured.")
 
-                self._shared_models[self.model_name] = SentenceTransformer(
-                    self.model_name
-                )
+            self._client = OpenAI(
+                api_key=settings.OPENAI_API_KEY
+            )
 
-            except Exception as e:
-                logger.error(
-                    f"Failed to load embedding model {self.model_name}: {e}"
-                )
+        return self._client
 
-                fallback = "all-MiniLM-L6-v2"
-
-                if fallback not in self._shared_models:
-                    from sentence_transformers import SentenceTransformer
-
-                    logger.info(
-                        f"Attempting fallback embedding model: {fallback}"
-                    )
-
-                    self._shared_models[fallback] = SentenceTransformer(
-                        fallback
-                    )
-
-                self.model_name = fallback
-
-        return self._shared_models[self.model_name]
-
-    def embed_documents(self, texts: List[str]) -> List[List[float]]:
-        """Generate embeddings for text chunks."""
+    def embed_documents(
+        self,
+        texts: List[str],
+    ) -> List[List[float]]:
         if not texts:
             return []
 
-        embeddings = self.model.encode(
-            texts,
-            convert_to_numpy=True,
-            show_progress_bar=False,
+        response = self.client.embeddings.create(
+            model=self.model_name,
+            input=texts,
         )
 
+        return [item.embedding for item in response.data]
+
+    def embed_query(
+        self,
+        text: str,
+    ) -> List[float]:
+        response = self.client.embeddings.create(
+            model=self.model_name,
+            input=text,
+        )
+
+        return response.data[0].embedding
+
+
+class SentenceTransformerEmbeddingProvider(BaseEmbeddingProvider):
+    """Local SentenceTransformer embedding provider (e.g. BAAI/bge-small-en-v1.5)."""
+
+    def __init__(self, model_name: str = settings.EMBEDDING_MODEL_NAME):
+        self.model_name = model_name
+        self._model = None
+
+    @property
+    def model(self):
+        if self._model is None:
+            import os
+            os.environ.setdefault("TORCH_NUM_THREADS", "1")
+            os.environ.setdefault("OMP_NUM_THREADS", "1")
+            os.environ.setdefault("MKL_NUM_THREADS", "1")
+            try:
+                import torch
+                torch.set_num_threads(1)
+                try:
+                    torch.set_num_interop_threads(1)
+                except Exception:
+                    pass
+            except ImportError:
+                pass
+
+            from sentence_transformers import SentenceTransformer
+            self._model = SentenceTransformer(self.model_name, device="cpu")
+        return self._model
+
+    def preload(self):
+        """Warm up model into memory during container startup."""
+        _ = self.model
+
+    def embed_documents(self, texts: List[str]) -> List[List[float]]:
+        if not texts:
+            return []
+        import torch
+        with torch.no_grad():
+            embeddings = self.model.encode(
+                texts,
+                convert_to_numpy=True,
+                show_progress_bar=False,
+                batch_size=16,
+            )
         return embeddings.tolist()
 
     def embed_query(self, text: str) -> List[float]:
-        """Generate embedding for query string."""
-        embedding = self.model.encode(
-            text,
-            convert_to_numpy=True,
-            show_progress_bar=False,
-        )
-
+        import torch
+        with torch.no_grad():
+            embedding = self.model.encode(
+                text,
+                convert_to_numpy=True,
+                show_progress_bar=False,
+            )
         return embedding.tolist()
+
+
+class GeminiEmbeddingProvider(BaseEmbeddingProvider):
+    """Zero-memory Gemini API embedding provider (100% Free Tier)."""
+
+    def __init__(self, model_name: str = "models/text-embedding-004"):
+        self.model_name = model_name
+        self._embeddings = None
+
+    @property
+    def embeddings(self):
+        if self._embeddings is None:
+            if not settings.GEMINI_API_KEY:
+                raise RuntimeError("GEMINI_API_KEY is not configured.")
+            from langchain_google_genai import GoogleGenerativeAIEmbeddings
+            self._embeddings = GoogleGenerativeAIEmbeddings(
+                model=self.model_name,
+                google_api_key=settings.GEMINI_API_KEY
+            )
+        return self._embeddings
+
+    def embed_documents(self, texts: List[str]) -> List[List[float]]:
+        if not texts:
+            return []
+        return self.embeddings.embed_documents(texts)
+
+    def embed_query(self, text: str) -> List[float]:
+        return self.embeddings.embed_query(text)
+
+
+def get_default_embedding_provider() -> BaseEmbeddingProvider:
+    """Factory returning configured or zero-memory default embedding provider."""
+    provider = getattr(settings, "EMBEDDING_PROVIDER", "sentence_transformer").lower()
+    if provider == "gemini":
+        return GeminiEmbeddingProvider()
+    elif provider == "openai":
+        return OpenAIEmbeddingProvider()
+    return SentenceTransformerEmbeddingProvider()
