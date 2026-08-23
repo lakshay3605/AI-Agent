@@ -1,0 +1,10 @@
+[tool.pytest.ini_options]
+minversion = "7.0"
+testpaths = ["tests"]
+pythonpath = ["backend"]
+
+[tool.pyright]
+include = ["backend", "tests"]
+extraPaths = ["backend"]
+pythonVersion = "3.10"
+typeCheckingMode = "basic"
