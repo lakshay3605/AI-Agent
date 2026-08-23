@@ -34,7 +34,7 @@ class Settings(BaseSettings):
         return ["http://localhost:3000", "http://127.0.0.1:3000"]
 
     # RAG Settings
-    BASE_DIR: str = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
+    BASE_DIR: str = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     DATA_DIR: str = os.path.join(BASE_DIR, "data")
     CHUNK_SIZE: int = 600
     CHUNK_OVERLAP: int = 100
